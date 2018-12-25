@@ -119,7 +119,8 @@
                 success: function (result){
                   try{
                     dd("Validate Success");
-                    merchantSession = window.applePayProcess.merchantSession = JSON.parse(result.merchantSession);
+                    dd(result);
+                    var merchantSession = window.applePayProcess.merchantSession = result;
                     dd(merchantSession);
                     
                     session.completeMerchantValidation(merchantSession);
@@ -135,8 +136,10 @@
               dd("Start transact");
               data = {
                 cid : window.applePayProcess.cid,
-                applepay_token : event.payment.token,
+                token : JSON.stringify(event.payment.token.paymentData),
                 is_test : window.applePayProcess.is_test,
+                qfKey : window.applePayProcess.qfKey,
+                description : window.applePayProcess.description,
               };
               data.pid = window.applePayProcess.pid ? window.applePayProcess.pid : undefined;
               data.eid = window.applePayProcess.eid ? window.applePayProcess.eid : undefined;
@@ -252,11 +255,12 @@
     } 
 }
 .console {
-    display: none;
+    /*display: none;*/
 }
 </style>
 
 <div class="crm-container">
+  <div class="crm-group console">Console message: </div>
   <div class="crm-group display-data">
     <div class="crm-section">
       <div class="label">{/literal}{ts}Payment Organization{/ts}{literal}</div>
@@ -275,8 +279,6 @@
   <div class="crm-group">
     <div align="center" style="margin-top: 10px"><button class="apple-pay-button apple-pay-button-black-with-line" onclick="window.applePayProcess.doPay();"></button></div>
   </div>
-
-  <div class="crm-group console">Console message: </div>
 </div>
 {/literal}
 {/if}

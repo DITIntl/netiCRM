@@ -244,11 +244,32 @@ class CRM_Core_Payment_Mobile extends CRM_Core_Payment {
         'initiative' => 'web',
         'initiativeContext' => $_POST['domain_name'],
       );
+      dd($data);
       $url = $_POST['validationURL'];
-      $cmd = 'curl --request POST --url "'.$url.'" -H "Content-Type: application/json" --data @- <<END 
-      '. json_encode($data).'
-      END';
+      /*
+      $ch = curl_init($url);
+      $opt = array();
+
+      $cert = '/var/www/html/cert/apple-pay-cert.pem';
+      // $key =  '/var/www/html/cert/neticrm.tw.key';
+      // $opt[CURLOPT_SSLKEY] = $key;
+      $opt[CURLOPT_SSLCERT] = $cert;
+
+      $opt[CURLOPT_HTTPHEADER] = array(
+        'Content-Type: application/json',
+      );
+      $opt[CURLOPT_RETURNTRANSFER] = TRUE;
+      $opt[CURLOPT_POST] = TRUE;
+      $opt[CURLOPT_POSTFIELDS] = $data;
+      curl_setopt_array($ch, $opt);
+      */
+
+      $cmd = 'curl --request POST --url "'.$url.'" --cert /var/www/html/cert/apple-pay-cert.pem -H "Content-Type: application/json" --data "'. json_encode($data).'"';
+      dd($cmd);
       $result = exec($cmd);
+
+      // $result = curl_exec($ch);
+      dd($result);
     }
 
     echo $result;
@@ -256,6 +277,101 @@ class CRM_Core_Payment_Mobile extends CRM_Core_Payment {
   }
 
   static function transact(){
+
+
+
+    if($merchantPaymentProcessor->payment_processor_type == 'SPGATEWAY'){
+      module_load_include('inc', 'civicrm_spgateway', 'civicrm_spgateway.checkout');
+      $result = civicrm_spgateway_do_transfer_checkout(&$vars, &$component, &$merchantPaymentProcessor, $is_test);
+      
+
+    }
+
+    $type = 'applepay';
+    $contribution = new CRM_Contribute_DAO_Contribution();
+    $contribution->id = $_POST['cid'];
+    $contribution->find(TRUE);
+    dd($contribution);
+
+    $email = new CRM_Core_DAO_Email();
+    $email->contact_id = $contribution->contact_id;
+    $email->is_primary = true;
+    $email->find(TRUE);
+
+    $paymentProcessor = new CRM_Core_DAO_PaymentProcessor();
+    $paymentProcessor->id = $contribution->payment_processor_id;
+    $paymentProcessor->find(TRUE);
+
+    $merchantPaymentProcessor = new CRM_Core_DAO_PaymentProcessor();
+    $merchantPaymentProcessor->id = $paymentProcessor->user_name;
+    $merchantPaymentProcessor->id = 8;
+    $merchantPaymentProcessor->find(TRUE);
+
+    if($merchantPaymentProcessor->payment_processor_type == 'SPGATEWAY'){
+      // module_load_include('inc', 'civicrm_spgateway', 'civicrm_spgateway.checkout');
+      // civicrm_spgateway_do_transfer_checkout(&$vars, &$component, &$merchantPaymentProcessor, $is_test);
+      dd('SPGATEWAY');
+      dd($_POST);
+
+      $token = json_decode($_POST['token']);
+      dd($token);
+
+      $params = array(
+        'TimeStamp' => time(),
+        'Version' => '1.0',
+        'MerchantOrderNo' => _civicrm_spgateway_trxn_id($is_test, $contribution->id).rand(0,10000),
+        'Amt' => $contribution->total_amount,
+        'ProdDesc' => $_POST['description'], 
+        'PayerEmail' => $email->email,
+        'CardNo' => '',
+        'Exp' => '',
+        'CVC' => '',
+        'APPLEPAY' => urlencode($token->data),
+        'APPLEPAYTYPE' => '02',
+      );
+      dd($params);
+
+      $data = _civicrm_spgateway_recur_encrypt(http_build_query($params), get_object_vars($merchantPaymentProcessor));
+      dd($merchantPaymentProcessor);
+
+      $data = array(
+        'MerchantID_' => $merchantPaymentProcessor->user_name,
+        'PostData_' => $data,
+        'Pos_' => 'JSON',
+      );
+      dd($data);
+      $url = 'https://ccore.spgateway.com/API/CreditCard';
+
+      $ch = curl_init($url);
+      $opt = array();
+      $opt[CURLOPT_RETURNTRANSFER] = TRUE;
+      $opt[CURLOPT_POST] = TRUE;
+      $opt[CURLOPT_POSTFIELDS] = $data;
+      curl_setopt_array($ch, $opt);
+
+      $result = curl_exec($ch);
+      $status = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+      if ($result === FALSE) {
+        $errno = curl_errno($ch);
+        $err = curl_error($ch);
+        $curlError = array($errno => $err);
+      }
+      else{
+        $curlError = array();
+      }
+      curl_close($ch);
+
+      // $cmd = 'curl --request POST --url "'.$url.'" -H "Content-Type: application/json" --data "'. json_encode($data).'"';
+      // dd($cmd);
+      // $result = exec($cmd);
+      dd(json_decode($result));
+      echo $result;
+      exit;
+    }
+
+
+
+
     if(strtolower($paymentProcessor->password) == 'neweb'){
       $type = 'applepay';
       $contribution = new CRM_Contribute_DAO_Contribution();
@@ -263,7 +379,8 @@ class CRM_Core_Payment_Mobile extends CRM_Core_Payment {
       $contribution->find(TRUE);
 
       $paymentProcessor = new CRM_Core_DAO_PaymentProcessor();
-      $paymentProcessor->id = $contribution->payment_processor_id;
+      $paymentProcessor->id = 8;
+      // $paymentProcessor->id = $contribution->payment_processor_id;
       $paymentProcessor->find(TRUE);
 
       $data = array(
@@ -292,9 +409,7 @@ class CRM_Core_Payment_Mobile extends CRM_Core_Payment {
       }else{
         $url = preg_replace('/\/$/', '', trim($paymentProcessor->url_site)).'/ccaccept';
       }
-      $cmd = 'curl --request POST --url "'.$url.'" -H "Content-Type: application/json" --data @- <<END 
-      '. json_encode($data).'
-      END';
+      $cmd = 'curl --request POST --url "'.$url.'" -H "Content-Type: application/json" --data "'. json_encode($data).'"';
 
       $record = array(
         'cid' => $contribution->id,
