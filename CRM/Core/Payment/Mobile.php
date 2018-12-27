@@ -246,29 +246,10 @@ class CRM_Core_Payment_Mobile extends CRM_Core_Payment {
       );
       dd($data);
       $url = $_POST['validationURL'];
-      /*
-      $ch = curl_init($url);
-      $opt = array();
-
-      $cert = '/var/www/html/cert/apple-pay-cert.pem';
-      // $key =  '/var/www/html/cert/neticrm.tw.key';
-      // $opt[CURLOPT_SSLKEY] = $key;
-      $opt[CURLOPT_SSLCERT] = $cert;
-
-      $opt[CURLOPT_HTTPHEADER] = array(
-        'Content-Type: application/json',
-      );
-      $opt[CURLOPT_RETURNTRANSFER] = TRUE;
-      $opt[CURLOPT_POST] = TRUE;
-      $opt[CURLOPT_POSTFIELDS] = $data;
-      curl_setopt_array($ch, $opt);
-      */
-
       $cmd = 'curl --request POST --url "'.$url.'" --cert /var/www/html/cert/apple-pay-cert.pem -H "Content-Type: application/json" --data "'. json_encode($data).'"';
       dd($cmd);
       $result = exec($cmd);
 
-      // $result = curl_exec($ch);
       dd($result);
     }
 
@@ -280,12 +261,10 @@ class CRM_Core_Payment_Mobile extends CRM_Core_Payment {
 
 
 
-    if($merchantPaymentProcessor->payment_processor_type == 'SPGATEWAY'){
-      module_load_include('inc', 'civicrm_spgateway', 'civicrm_spgateway.checkout');
-      $result = civicrm_spgateway_do_transfer_checkout(&$vars, &$component, &$merchantPaymentProcessor, $is_test);
-      
-
-    }
+    // if($merchantPaymentProcessor->payment_processor_type == 'SPGATEWAY'){
+    //   module_load_include('inc', 'civicrm_spgateway', 'civicrm_spgateway.checkout');
+    //   $result = civicrm_spgateway_do_transfer_checkout($vars, $component, $merchantPaymentProcessor, $is_test);
+    // }
 
     $type = 'applepay';
     $contribution = new CRM_Contribute_DAO_Contribution();
@@ -326,7 +305,7 @@ class CRM_Core_Payment_Mobile extends CRM_Core_Payment {
         'CardNo' => '',
         'Exp' => '',
         'CVC' => '',
-        'APPLEPAY' => urlencode($token->data),
+        'APPLEPAY' => urlencode(json_encode($token)),
         'APPLEPAYTYPE' => '02',
       );
       dd($params);
@@ -364,8 +343,16 @@ class CRM_Core_Payment_Mobile extends CRM_Core_Payment {
       // $cmd = 'curl --request POST --url "'.$url.'" -H "Content-Type: application/json" --data "'. json_encode($data).'"';
       // dd($cmd);
       // $result = exec($cmd);
+
+
       dd(json_decode($result));
-      echo $result;
+      $result = json_decode($result);
+      $return = new stdClass();
+      if($result->Status == 'SUCCESS'){
+        $return->is_success = 1;
+      }
+      dd($return);
+      echo json_encode($return);
       exit;
     }
 
